@@ -1,0 +1,28 @@
+# Example root service.
+#
+# GUI desktop notifications from root services are unreliable by nature, so this
+# example uses --no-notify and logs to journald.
+#
+# Install example:
+#   sudo mkdir -p /opt/net-pulse
+#   sudo cp netpulse.py /opt/net-pulse/
+#   sudo cp netpulse.service.example /etc/systemd/system/netpulse.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now netpulse.service
+#   journalctl -u netpulse.service -f
+#
+# Edit ExecStart thresholds/interface first.
+
+[Unit]
+Description=NetPulse process network usage alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/net-pulse/netpulse.py --up-kb 16 --down-kb 16 --samples 2 --cooldown 30 --no-notify
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
