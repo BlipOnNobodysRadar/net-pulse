@@ -10,8 +10,9 @@ else
   echo "apt not found. Install nethogs, libnotify/notify-send, and python3 with your distro package manager."
 fi
 
-chmod +x netpulse.py
+chmod +x netpulse.py netpulse_live.py
 sudo ln -sf "$PWD/netpulse.py" /usr/local/bin/netpulse
+sudo ln -sf "$PWD/netpulse_live.py" /usr/local/bin/netpulse-live
 
-echo "Installed symlink: /usr/local/bin/netpulse"
-echo "Try: netpulse --gui --up-kb 8 --down-kb 8"
+echo "Installed symlinks: /usr/local/bin/netpulse and /usr/local/bin/netpulse-live"
+echo "Try: netpulse-live --gui --up-kb 8 --down-kb 8"
