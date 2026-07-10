@@ -25,13 +25,37 @@ from netpulse_cycles import CycleSnapshot, TraceCycleAssembler, is_cycle_boundar
 
 def _emit_snapshot(
     snapshot: Optional[CycleSnapshot],
+    args: argparse.Namespace,
+    states: dict[str, netpulse.AlertState],
     on_sample: Optional[Callable[[netpulse.TrafficSample], None]],
     on_cycle: Optional[Callable[[CycleSnapshot], None]],
+    notifier: Optional[Callable[[argparse.Namespace, str, str, str], None]],
 ) -> None:
     if snapshot is None:
         return
-    if on_sample:
-        for rate in snapshot.rates:
+
+    for rate in snapshot.rates:
+        aggregated = netpulse.RateLine(
+            raw=f"cycle:{snapshot.started_at:.3f}-{snapshot.ended_at:.3f}",
+            process=rate.process,
+            display_name=rate.display_name,
+            pid=rate.pid,
+            uid=rate.uid,
+            protocol=rate.protocol,
+            sent_kb_s=rate.sent_kb_s,
+            recv_kb_s=rate.recv_kb_s,
+        )
+        # One alert-policy observation per completed cycle, even if nethogs
+        # emitted separate TCP and UDP rows for the same process.
+        netpulse.process_rate_line(
+            args,
+            aggregated,
+            states,
+            on_sample=None,
+            notifier=notifier,
+        )
+
+        if on_sample:
             on_sample(
                 netpulse.TrafficSample(
                     timestamp=snapshot.ended_at,
@@ -106,22 +130,20 @@ def stream_nethogs_cycles(
                 break
             now = time.time()
             if is_cycle_boundary(line):
-                _emit_snapshot(assembler.boundary(now), on_sample, on_cycle)
+                _emit_snapshot(
+                    assembler.boundary(now),
+                    args,
+                    states,
+                    on_sample,
+                    on_cycle,
+                    notifier,
+                )
                 continue
 
             rate = netpulse.parse_nethogs_line(line)
             if rate is None:
                 continue
 
-            # Keep the original per-process threshold/cooldown policy, but defer
-            # history and dashboard updates until the cycle is internally complete.
-            netpulse.process_rate_line(
-                args,
-                rate,
-                states,
-                on_sample=None,
-                notifier=notifier,
-            )
             assembler.add_rate(
                 timestamp=now,
                 process=rate.process,
@@ -133,7 +155,14 @@ def stream_nethogs_cycles(
                 recv_kb_s=rate.recv_kb_s,
             )
     finally:
-        _emit_snapshot(assembler.finish(time.time()), on_sample, on_cycle)
+        _emit_snapshot(
+            assembler.finish(time.time()),
+            args,
+            states,
+            on_sample,
+            on_cycle,
+            notifier,
+        )
         try:
             proc.terminate()
         except OSError:
