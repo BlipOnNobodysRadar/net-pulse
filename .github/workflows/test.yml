@@ -17,4 +17,4 @@ jobs:
       - name: Compile Python files
         run: python -m py_compile netpulse.py netpulse_cycles.py netpulse_live.py test_netpulse_cycles.py
       - name: Validate shell scripts
-        run: bash -n install.sh netpulse.service.example
+        run: bash -n install.sh
